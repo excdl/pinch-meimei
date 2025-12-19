@@ -3,194 +3,139 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>智能打卡系統</title>
+<title>奇可智能打卡系統</title>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
 <style>
 body { 
-    font-family: Arial; 
-    background:#f7f7f7;
-    display:flex; 
-    justify-content:center; 
-    padding:25px; 
-    margin:0;
+    font-family: Arial; background:#f7f7f7; display:flex; justify-content:center; padding:20px; margin:0;
 }
-.card {
-    background:white;
-    width:95%;
-    max-width:480px;
-    box-shadow:0 8px 25px rgba(0,0,0,0.12);
-    border-radius:18px;
-    padding:25px 20px;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:18px;
-    text-align:center;
+.card { 
+    background:white; width:95%; max-width:480px; box-shadow:0 8px 25px rgba(0,0,0,0.12);
+    border-radius:18px; padding:25px 20px; display:flex; flex-direction:column; align-items:center; gap:15px;
 }
-#userInfo { font-size:26px; font-weight:bold; }
-#dateTime { font-size:22px; margin-bottom:10px; }
-
-/* 公司資訊在按鈕上方 */
-#companyInfo {
-    display:flex;
-    justify-content:center;
-    gap:12px;
-    font-size:18px;
-    margin-bottom:8px;
-    flex-wrap: nowrap;
-}
-#companyInfo .badge {
-    display:inline-block;
-    padding:6px 12px;
-    font-weight:bold;
-    border-radius:20px;
-    white-space: nowrap;
-}
-.ok { background:#2ecc71; color:white; }
-.err { background:#e74c3c; color:white; }
-
-/* 圓形打卡按鈕 */
-.circleBtn {
-    width:140px; 
-    height:140px; 
-    border-radius:50%; 
-    font-size:26px; 
-    font-weight:bold; 
-    border:none; 
-    cursor:pointer; 
-    transition:0.3s;
-}
-.circleBtn.on { background:#3498db; color:white; }
-.circleBtn.off { background:#2ecc71; color:white; }
-
-/* 今日打卡紀錄 */
-#todayRecords {
-    width:100%;
-    background:#fafafa;
-    border-radius:12px;
-    padding:15px;
-    border:1px solid #ddd;
-    font-size:18px;
-    cursor:pointer;
-}
-
-/* 響應式調整 */
+#userInfo { font-size:24px; font-weight:bold; }
+#dateTime { font-size:20px; }
+.status-container { display:flex; gap:12px; font-size:18px; font-weight:bold; }
+button.circleBtn { width:130px; height:130px; border-radius:50%; font-size:24px; font-weight:bold; border:none; cursor:pointer; transition:0.3s; }
+button.circleBtn.on { background:#3498db; color:white; }
+button.circleBtn.off { background:#2ecc71; color:white; }
+#todayRecords { width:100%; background:#fafafa; border-radius:12px; padding:12px; border:1px solid #ddd; font-size:16px; cursor:pointer; }
 @media(max-width:420px){
-    #companyInfo { font-size:16px; gap:6px; }
-    .circleBtn { width:120px; height:120px; font-size:22px; }
-    #userInfo { font-size:22px; }
-    #dateTime { font-size:20px; }
-    #todayRecords { font-size:16px; }
+    .status-container { font-size:16px; gap:6px; }
+    #userInfo { font-size:20px; }
+    button.circleBtn { width:110px; height:110px; font-size:20px; }
 }
 </style>
 </head>
 <body>
+
 <div class="card">
     <div id="userInfo">正在獲取使用者資訊...</div>
     <div id="dateTime">載入中…</div>
 
-    <div id="companyInfo">
-        <div id="company" class="badge err">載入中</div>
-        <div id="range" class="badge err">判斷中</div>
+    <div class="status-container">
+        <span id="nearestCompany">載入中</span>
+        <span id="rangeStatus">判斷中</span>
     </div>
 
     <button id="btnClock" class="circleBtn on">上班</button>
 
-    <div id="todayRecords" onclick="updateTodayRecords()">今日打卡紀錄：點擊刷新</div>
+    <div id="todayRecords" onclick="updateTodayRecords()">今日打卡紀錄：點擊可刷新</div>
 </div>
-<script>
-const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbxGLGMGDfQDITIOx0EHlRlYWs-DpBwkWWl-6WkQCxe2eEPVBILGTibKpg_Ev9YBOzc/exec";
-let userId="", userName="", isClockIn=true;
 
-// 時間顯示
+<script>
+const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzdEuiSwsYnLsWVS_p_GpdZ_Q7jSebUtkDlJ2BvaXGDim0iELWLCbSbwfOdQUZBOJoG/exec";
+let userId = "", userName = "", isClockIn = true;
+
 function updateDateTime(){
-  const now = new Date();
-  document.getElementById("dateTime").textContent = now.toLocaleString("zh-TW",{hour12:false});
+    const now = new Date();
+    document.getElementById("dateTime").textContent = now.toLocaleString("zh-TW",{hour12:false});
 }
 setInterval(updateDateTime,1000);
 updateDateTime();
 
-// 取得使用者資訊
-async function updateUserInfo(){
-  await liff.init({liffId:"2008504718-nmXP0WRV"});
-  if(!liff.isLoggedIn()) await liff.login();
-  const profile = await liff.getProfile();
-  userId = profile.userId;
-  userName = profile.displayName;
-  document.getElementById("userInfo").textContent = `${userName} 您好`;
+async function initLIFF(){
+    await liff.init({liffId:"2008504718-nmXP0WRV"});
+    if(!liff.isLoggedIn()) await liff.login();
+    const profile = await liff.getProfile();
+    userId = profile.userId;
+    userName = profile.displayName;
+    document.getElementById("userInfo").textContent = `${userName} 您好`;
+    await checkCompanyStatus();
+    updateTodayRecords();
 }
 
-// 檢查公司與距離
+async function getIP(){
+    try{ const res = await fetch("https://api.ipify.org?format=json"); const data = await res.json(); return data.ip; }
+    catch{return "";}
+}
+
 async function checkCompanyStatus(){
-  let ip="", lat=0, lng=0;
-  try{
-    const ipRes = await fetch("https://api.ipify.org?format=json");
-    ip = (await ipRes.json()).ip;
-  }catch{}
-  if(navigator.geolocation){
-    navigator.geolocation.getCurrentPosition(pos=>{
-      lat = pos.coords.latitude;
-      lng = pos.coords.longitude;
-      fetch(`${API_ENDPOINT}?action=check&lat=${lat}&lng=${lng}&ip=${ip}`)
-        .then(r=>r.json())
-        .then(data=>{
-          document.getElementById("nearestCompany").textContent = data.nearestCompany.name || "不明連線";
-          document.getElementById("rangeStatus").textContent = data.rangeStatus || "非打卡範圍";
+    let ip="", lat=0, lng=0;
+    ip = await getIP();
+    if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition(async pos=>{
+            lat = pos.coords.latitude;
+            lng = pos.coords.longitude;
+            try{
+                const res = await fetch(`${API_ENDPOINT}?action=check&lat=${lat}&lng=${lng}&ip=${ip}`);
+                const data = await res.json();
+                document.getElementById("nearestCompany").textContent = data.nearestCompany?.name || "不明連線";
+                document.getElementById("rangeStatus").textContent = data.rangeStatus || "非打卡範圍";
+            }catch{ 
+                document.getElementById("nearestCompany").textContent = "不明連線";
+                document.getElementById("rangeStatus").textContent = "非打卡範圍";
+            }
+        }, ()=>{ 
+            document.getElementById("nearestCompany").textContent="無法取得GPS";
+            document.getElementById("rangeStatus").textContent="非打卡範圍";
         });
-    },()=>{console.log("無法取得GPS");});
-  }
+    }
 }
 
-// 打卡
 async function performClock(){
-  let ip="", lat=0, lng=0;
-  try{ ip = (await fetch("https://api.ipify.org?format=json").then(r=>r.json())).ip; }catch{}
-  if(navigator.geolocation){
+    const ip = await getIP();
+    if(!navigator.geolocation){ Swal.fire("⚠ 無法取得GPS位置"); return; }
     navigator.geolocation.getCurrentPosition(async pos=>{
-      lat = pos.coords.latitude;
-      lng = pos.coords.longitude;
-      const status = isClockIn ? "上班" : "下班";
-      const res = await fetch(API_ENDPOINT,{
-        method:"POST",
-        body: JSON.stringify({userId,userName,ip,status,gps:{lat,lng}})
-      });
-      const data = await res.json();
-      Swal.fire({icon:"success",title:data.message,html:`${data.date} ${data.time}`,timer:2000,showConfirmButton:false});
-      isClockIn = !isClockIn;
-      const btn = document.getElementById("btnClock");
-      btn.textContent = isClockIn?"上班":"下班";
-      btn.className = `circleBtn ${isClockIn?"on":"off"}`;
-      updateTodayRecords();
-      checkCompanyStatus();
-    },()=>{Swal.fire("⚠ 無法取得GPS位置");});
-  }
+        const gps = {lat: pos.coords.latitude, lng: pos.coords.longitude};
+        const status = isClockIn ? "上班" : "下班";
+        try{
+            const res = await fetch(API_ENDPOINT,{
+                method:"POST",
+                body: JSON.stringify({userId,userName,status,ip,gps})
+            });
+            const data = await res.json();
+            Swal.fire({icon:"success", title:data.message, html:`${data.date} ${data.time}`, timer:2000, showConfirmButton:false});
+            await checkCompanyStatus();
+            isClockIn = !isClockIn;
+            const btn = document.getElementById("btnClock");
+            btn.textContent = isClockIn?"上班":"下班";
+            btn.className = `circleBtn ${isClockIn?"on":"off"}`;
+            updateTodayRecords();
+        }catch{ Swal.fire("⚠ 打卡失敗"); }
+    }, ()=>{ Swal.fire("⚠ 無法取得GPS位置"); });
 }
 
-// 今日紀錄
 async function updateTodayRecords(){
-  const today = new Date();
-  const formattedDate = today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,'0')+"-"+String(today.getDate()).padStart(2,'0');
-  try{
-    const res = await fetch(`${API_ENDPOINT}?action=getToday&userId=${userId}&date=${formattedDate}`);
-    const data = await res.json();
-    const container = document.getElementById("todayRecords");
-    if(!data.length){ container.innerHTML="今日打卡紀錄：無"; return; }
-    container.innerHTML="今日打卡紀錄：<br>"+data.map(r=>`${r.status} ${r.time} ${r.method} ${r.ip} ${r.nearestCompany} ${r.rangeStatus}`).join("<br>");
-  }catch{ document.getElementById("todayRecords").textContent="今日打卡紀錄：讀取失敗"; }
+    const today = new Date();
+    const formattedDate = today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,'0')+"-"+String(today.getDate()).padStart(2,'0');
+    try{
+        const res = await fetch(`${API_ENDPOINT}?action=getToday&userId=${userId}&date=${formattedDate}`);
+        const data = await res.json();
+        const container = document.getElementById("todayRecords");
+        if(!Array.isArray(data) || data.length===0){ container.textContent="今日打卡紀錄：無"; return; }
+        container.innerHTML = "今日打卡紀錄：<br>"+data.map(r=>`${r.status} ${r.time} ${r.method} ${r.ip} ${r.nearestCompany} ${r.rangeStatus}`).join("<br>");
+    }catch{ document.getElementById("todayRecords").textContent="今日打卡紀錄：讀取失敗"; }
 }
 
 document.getElementById("btnClock").onclick = performClock;
-
-window.onload = async ()=>{
-  await updateUserInfo();
-  checkCompanyStatus();
-  updateTodayRecords();
-};
+window.onload = initLIFF;
 </script>
 </body>
 </html>
+
 
 
 
