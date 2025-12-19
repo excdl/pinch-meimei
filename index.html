@@ -1,6 +1,125 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>奇可智能打卡系統</title>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+<style>
+body { 
+    font-family: Arial; 
+    background:#f7f7f7;
+    display:flex; 
+    justify-content:center; 
+    padding:25px; 
+    margin:0;
+}
+
+.card {
+    background:white;
+    width:95%;
+    max-width:480px;
+    box-shadow:0 8px 25px rgba(0,0,0,0.12);
+    border-radius:18px;
+    padding:25px 20px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:20px;
+}
+
+#userInfo { font-size:26px; font-weight:bold; }
+#dateTime { font-size:22px; }
+#statusInfo { font-size:20px; padding:6px 18px; border-radius:30px; display:inline-block; font-weight:bold; }
+
+#companyInfo {
+    display:flex; justify-content:center; gap:20px; font-size:18px; font-weight:bold;
+}
+
+.buttons-container { width:100%; display:flex; gap:12px; justify-content:center; }
+button { 
+    flex:1;
+    padding:12px 0; 
+    font-size:20px; 
+    border-radius:50%; 
+    cursor:pointer; 
+    font-weight:bold; 
+    border:none;
+    transition:0.22s;
+    width:100px; height:100px;
+}
+
+button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 14px rgba(0,0,0,0.12);
+}
+
+#btnStart { background:linear-gradient(145deg, #3498db, #2980b9); color:white; }
+#btnEnd { background:linear-gradient(145deg, #2ecc71, #27ae60); color:white; }
+
+#todayRecords {
+    width:100%;
+    background:#fafafa;
+    border-radius:12px;
+    padding:15px;
+    border:1px solid #ddd;
+    font-size:18px;
+}
+
+@media(max-width:420px){
+    button { width:80px; height:80px; font-size:18px; }
+    #userInfo { font-size:22px; }
+    #todayRecords { font-size:16px; }
+}
+</style>
+</head>
+<body>
+<div class="card">
+    <div id="userInfo">正在獲取使用者資訊...</div>
+    <div id="dateTime">載入中…</div>
+    <div id="companyInfo">
+        <span id="nearestCompany">載入中</span>
+        <span id="rangeStatus">判斷中</span>
+    </div>
+    <div class="buttons-container">
+        <button id="btnStart">上班</button>
+        <button id="btnEnd">下班</button>
+    </div>
+    <div id="todayRecords">今日打卡紀錄：讀取中…</div>
+</div>
+
+<script>
+let userId = "";
+let userName = "";
+
+// 時間更新
+function updateDateTime() {
+    const now = new Date();
+    const options = { hour12:false };
+    document.getElementById("dateTime").textContent = now.toLocaleString('zh-TW', options);
+}
+setInterval(updateDateTime, 1000);
+updateDateTime();
+
+// LIFF 初始化
+liff.init({ liffId: "你的LIFF_ID" }).then(() => {
+    userId = liff.getContext().userId;
+    liff.getProfile().then(profile=>{
+        userName = profile.displayName;
+        document.getElementById("userInfo").textContent = `${userName} 您好`;
+        checkCompanyAndDistance();
+        loadTodayRecords();
+    });
+});
+
+
+
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>奇可智能打卡系統</title>
@@ -104,7 +223,7 @@ body {
 </div>
 
 <script>
-const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzdEuiSwsYnLsWVS_p_GpdZ_Q7jSebUtkDlJ2BvaXGDim0iELWLCbSbwfOdQUZBOJoG/exec";
+const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbwtunY5z3YswB8AB2HgOpa0o3vX1lfcKTYEIyFgFyO9skgpJ5M9AbQdtDrRXtv977Zl/exec";
 let userId = "", userName = "", isClockIn = true;
 
 function updateDateTime(){
@@ -125,74 +244,89 @@ async function initLIFF(){
     updateTodayRecords();
 }
 
-async function getIP(){
-    try{ const res = await fetch("https://api.ipify.org?format=json"); const data = await res.json(); return data.ip; }
-    catch{return "";}
+// 取得 IP
+async function getIP() {
+    const res = await fetch("https://api.ipify.org?format=json");
+    const data = await res.json();
+    return data.ip;
 }
 
-async function checkCompanyStatus(){
-    let ip="", lat=0, lng=0;
-    ip = await getIP();
+// 檢查公司與距離
+async function checkCompanyAndDistance(){
+    let ip = await getIP();
     if(navigator.geolocation){
         navigator.geolocation.getCurrentPosition(async pos=>{
-            lat = pos.coords.latitude;
-            lng = pos.coords.longitude;
-            try{
-                const res = await fetch(`${API_ENDPOINT}?action=check&lat=${lat}&lng=${lng}&ip=${ip}`);
-                const data = await res.json();
-                document.getElementById("nearestCompany").textContent = data.nearestCompany?.name || "不明連線";
-                document.getElementById("rangeStatus").textContent = data.rangeStatus || "非打卡範圍";
-            }catch{ 
-                document.getElementById("nearestCompany").textContent = "不明連線";
-                document.getElementById("rangeStatus").textContent = "非打卡範圍";
-            }
-        }, ()=>{ 
-            document.getElementById("nearestCompany").textContent="無法取得GPS";
-            document.getElementById("rangeStatus").textContent="非打卡範圍";
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            fetch(`https://script.google.com/macros/s/你的WEB_APP_ID/exec?action=check&lat=${lat}&lng=${lng}&ip=${ip}`)
+            .then(res=>res.json())
+            .then(data=>{
+                document.getElementById("nearestCompany").textContent = data.ipMatched ? data.nearestCompany.name : "不明連線";
+                document.getElementById("rangeStatus").textContent = data.rangeStatus;
+            }).catch(()=>{ 
+                document.getElementById("nearestCompany").textContent="載入失敗";
+                document.getElementById("rangeStatus").textContent="";
+            });
         });
     }
 }
 
-async function performClock(){
-    const ip = await getIP();
-    if(!navigator.geolocation){ Swal.fire("⚠ 無法取得GPS位置"); return; }
-    navigator.geolocation.getCurrentPosition(async pos=>{
-        const gps = {lat: pos.coords.latitude, lng: pos.coords.longitude};
-        const status = isClockIn ? "上班" : "下班";
-        try{
-            const res = await fetch(API_ENDPOINT,{
-                method:"POST",
-                body: JSON.stringify({userId,userName,status,ip,gps})
-            });
-            const data = await res.json();
-            Swal.fire({icon:"success", title:data.message, html:`${data.date} ${data.time}`, timer:2000, showConfirmButton:false});
-            await checkCompanyStatus();
-            isClockIn = !isClockIn;
-            const btn = document.getElementById("btnClock");
-            btn.textContent = isClockIn?"上班":"下班";
-            btn.className = `circleBtn ${isClockIn?"on":"off"}`;
-            updateTodayRecords();
-        }catch{ Swal.fire("⚠ 打卡失敗"); }
-    }, ()=>{ Swal.fire("⚠ 無法取得GPS位置"); });
+// 打卡
+async function punch(status){
+    let ip = await getIP();
+    let gps = null;
+    if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition(pos=>{
+            gps = {lat: pos.coords.latitude, lng: pos.coords.longitude};
+            postPunch(status, ip, gps);
+        });
+    } else {
+        postPunch(status, ip, gps);
+    }
 }
 
-async function updateTodayRecords(){
-    const today = new Date();
-    const formattedDate = today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,'0')+"-"+String(today.getDate()).padStart(2,'0');
-    try{
-        const res = await fetch(`${API_ENDPOINT}?action=getToday&userId=${userId}&date=${formattedDate}`);
-        const data = await res.json();
-        const container = document.getElementById("todayRecords");
-        if(!Array.isArray(data) || data.length===0){ container.textContent="今日打卡紀錄：無"; return; }
-        container.innerHTML = "今日打卡紀錄：<br>"+data.map(r=>`${r.status} ${r.time} ${r.method} ${r.ip} ${r.nearestCompany} ${r.rangeStatus}`).join("<br>");
-    }catch{ document.getElementById("todayRecords").textContent="今日打卡紀錄：讀取失敗"; }
+function postPunch(status, ip, gps){
+    fetch("https://script.google.com/macros/s/你的WEB_APP_ID/exec",{
+        method:"POST",
+        body: JSON.stringify({userId, userName, status, ip, gps})
+    })
+    .then(res=>res.json())
+    .then(data=>{
+        Swal.fire('打卡成功', `${status} ${data.nearestCompany} ${data.rangeStatus}`, 'success');
+        checkCompanyAndDistance();
+        loadTodayRecords();
+    }).catch(err=>{
+        Swal.fire('打卡失敗', err.message, 'error');
+    });
 }
 
-document.getElementById("btnClock").onclick = performClock;
-window.onload = initLIFF;
+// 今日打卡紀錄
+function loadTodayRecords(){
+    const dateStr = new Date().toISOString().slice(0,10); // yyyy-mm-dd
+    fetch(`https://script.google.com/macros/s/你的WEB_APP_ID/exec?action=getToday&userId=${userId}&date=${dateStr}`)
+    .then(res=>res.json())
+    .then(data=>{
+        if(!data || !data.length){
+            document.getElementById("todayRecords").textContent="今日打卡紀錄：無";
+            return;
+        }
+        let html = "今日打卡紀錄：\n";
+        data.forEach(r=>{
+            html += `${r.status} ${r.time} ${r.method} ${r.ip} ${r.nearestCompany} ${r.rangeStatus}\n`;
+        });
+        document.getElementById("todayRecords").textContent = html;
+    }).catch(()=>{
+        document.getElementById("todayRecords").textContent="今日打卡紀錄：讀取失敗";
+    });
+}
+
+// 綁定按鈕
+document.getElementById("btnStart").addEventListener("click",()=>punch("上班"));
+document.getElementById("btnEnd").addEventListener("click",()=>punch("下班"));
 </script>
 </body>
 </html>
+
 
 
 
