@@ -142,13 +142,13 @@ async function updateStatus(){
       const res = await fetch(`${API_ENDPOINT}?action=check&lat=${gps.lat}&lng=${gps.lng}&ip=${ip}`);
       const data = await res.json();
       const statusEl = document.getElementById("statusInfo");
-      if(data.rangeStatus==="可打卡範圍"){
+      if(data.rangeStatus==="有效打卡區"){
         statusEl.style.background="#2ecc71";
-        statusEl.textContent="可打卡範圍";
+        statusEl.textContent="有效打卡區";
       } else {
         statusEl.style.background="#e74c3c";
         const distText = data.distance!==null ? ` (${data.distance} 公尺)` : "";
-        statusEl.textContent="非打卡範圍"+distText;
+        statusEl.textContent="無效打卡區"+distText;
       }
     }catch(err){}
   });
