@@ -33,18 +33,24 @@ body {
 #userInfo { text-align:center; font-size:26px; font-weight:bold; }
 #dateTime { text-align:center; font-size:22px; }
 
+/* 狀態訊息橢圓形 */
 #statusContainer {
     display:flex;
     flex-direction:column;
     gap:10px;
-    width:100%;
+    width:80%; /* 縮小寬度 */
+    align-items:center; /* 水平置中 */
 }
 #statusContainer div {
-    padding:10px 15px;
-    border-radius:12px;
+    width:100%;
+    max-width:300px; /* 最大寬度 */
+    padding:8px 0;
+    border-radius:25px; /* 橢圓形 */
     color:#fff;
-    font-size:18px;
+    font-size:16px;
     font-weight:600;
+    text-align:center; /* 文字置中 */
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
 }
 #nearestCompany { background: linear-gradient(135deg, #e74c3c, #c0392b); }
 #rangeStatus { background: linear-gradient(135deg, #3498db, #2980b9); }
@@ -222,7 +228,7 @@ async function updateTodayRecords(){
     }
 }
 
-// 打卡功能 + 圓形倒數動畫（順時針漸滿）
+// 打卡功能 + 圓形倒數動畫
 async function clockIn(status){
     const ip = await getIP();
     if(!navigator.geolocation){ Swal.fire("⚠ 無法取得位置"); return; }
@@ -232,7 +238,6 @@ async function clockIn(status){
     const originalText = btn.textContent;
     btn.textContent = "打卡中…";
 
-    // 顯示倒數動畫
     const countdownWrapper = document.getElementById("countdownWrapper");
     const circle = document.getElementById("circleProgress");
     const text = document.getElementById("countdownText");
@@ -240,7 +245,7 @@ async function clockIn(status){
 
     const duration = 3; // 3秒倒數
     let elapsed = 0;
-    const circumference = 2 * Math.PI * 50; // r=50
+    const circumference = 2 * Math.PI * 50;
     circle.style.strokeDasharray = circumference;
     circle.style.strokeDashoffset = circumference;
 
@@ -277,7 +282,7 @@ async function clockIn(status){
             countdownWrapper.style.display = "none";
             btn.textContent = originalText;
             btn.disabled = false;
-            updateStatus(); // 打卡後立即更新狀態
+            updateStatus();
         }
     }, err=>{
         Swal.fire("⚠ 無法取得GPS位置");
