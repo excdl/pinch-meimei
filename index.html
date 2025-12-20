@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>LINE 打卡</title>
+<title>LINE 智能打卡</title>
 
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -27,18 +27,11 @@ body{
   text-align:center;
 }
 
-/* ===== 使用者 ===== */
-#user{
-  font-size:22px;
-  font-weight:bold;
-}
+/* 使用者 */
+#user{font-size:22px;font-weight:bold;}
+#now{font-size:18px;margin:6px 0 14px;}
 
-#now{
-  font-size:18px;
-  margin:6px 0 14px;
-}
-
-/* ===== 狀態區 ===== */
+/* 公司與範圍 */
 .company{
   font-size:20px;
   font-weight:bold;
@@ -49,20 +42,12 @@ body{
   font-size:18px;
   padding:10px;
   border-radius:12px;
-  margin-bottom:16px;
+  margin-bottom:18px;
 }
+.ok{background:#2ecc71;color:#fff;}
+.fail{background:#e74c3c;color:#fff;}
 
-.ok{
-  background:#2ecc71;
-  color:#fff;
-}
-
-.fail{
-  background:#e74c3c;
-  color:#fff;
-}
-
-/* ===== 打卡按鈕 ===== */
+/* 打卡按鈕 */
 .clock{
   width:150px;
   height:150px;
@@ -76,19 +61,17 @@ body{
   cursor:pointer;
   transition:.2s;
 }
-
 .clock:active{
   transform:translateY(6px);
   box-shadow:0 2px 0 #1f78c1;
 }
-
 .clock.loading{
   background:#95a5a6;
   box-shadow:none;
   cursor:not-allowed;
 }
 
-/* ===== 今日紀錄 ===== */
+/* 今日紀錄 */
 #todayBox{
   margin-top:20px;
   padding:14px;
@@ -97,11 +80,7 @@ body{
   text-align:left;
   cursor:pointer;
 }
-
-#todayTitle{
-  font-weight:bold;
-  margin-bottom:6px;
-}
+#todayTitle{font-weight:bold;margin-bottom:6px;}
 </style>
 </head>
 
@@ -123,54 +102,77 @@ body{
 </div>
 
 <script>
-const API="https://script.google.com/macros/s/AKfycbxr18Zud3teuJuWsF5gMalYoZNFJZv2GyE7P8tIY2T42r507xBVnqTF6Uo99zG8rWs4/exec";
-let userId="",userName="";
+/* ================= 基本設定 ================= */
+const API = "https://script.google.com/macros/s/AKfycbwRlSMD4QU6uYaof9w8494AcoMjpxoVv7AoaL4TiU47kFrrVq7945feC4ycxyW_sAlO/exec";   // ← 必填
+let userId = "", userName = "";
 
-liff.init({liffId:"2008504718-nmXP0WRV"}).then(async()=>{
+/* ================= LIFF ================= */
+liff.init({ liffId: "2008504718-nmXP0WRV" }).then(async()=>{
   if(!liff.isLoggedIn()) liff.login();
+
   const p = await liff.getProfile();
   userId = p.userId;
   userName = p.displayName;
-  user.textContent = `${userName} 您好`;
+
+  document.getElementById("user").textContent = `${userName} 您好`;
+
+  // ✅ 一定要在 LIFF 完成後才載入
   loadToday();
+  updateStatus();
 });
 
-/* ===== 時間 ===== */
+/* ================= 時間 ================= */
 setInterval(()=>{
-  now.textContent = new Date().toLocaleString("zh-TW",{hour12:false});
+  document.getElementById("now").textContent =
+    new Date().toLocaleString("zh-TW",{hour12:false});
 },1000);
 
-/* ===== 狀態更新 ===== */
+/* ================= 今日日期 ================= */
+function todayStr(){
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+/* ================= 狀態更新 ================= */
 async function updateStatus(){
   if(!navigator.geolocation) return;
 
   navigator.geolocation.getCurrentPosition(async pos=>{
-    const gps={lat:pos.coords.latitude,lng:pos.coords.longitude};
-    const ip=(await fetch("https://api.ipify.org?format=json").then(r=>r.json())).ip;
+    try{
+      const gps={lat:pos.coords.latitude,lng:pos.coords.longitude};
+      const ip=(await fetch("https://api.ipify.org?format=json").then(r=>r.json())).ip;
 
-    const res=await fetch(
-      `${API}?action=check&lat=${gps.lat}&lng=${gps.lng}&ip=${ip}`
-    );
-    const d=await res.json();
+      const res=await fetch(
+        `${API}?action=check&lat=${gps.lat}&lng=${gps.lng}&ip=${ip}`
+      );
+      const d=await res.json();
 
-    company.textContent = d.nearestCompany ? d.nearestCompany.name : "未知位置";
+      document.getElementById("company").textContent =
+        d.nearestCompany ? d.nearestCompany.name : "未知位置";
 
-    range.textContent =
-      d.rangeStatus + (d.distance!=null ? `（${d.distance.toFixed(0)} 公尺）` : "");
+      const distText =
+        d.distance !== null && d.distance !== 0
+          ? `（${d.distance.toFixed(0)} 公尺）`
+          : "";
 
-    range.className = "range " + (d.rangeStatus.includes("可")?"ok":"fail");
+      const rangeEl=document.getElementById("range");
+      rangeEl.textContent = (d.rangeStatus || "未知") + distText;
+      rangeEl.className = "range " + (d.rangeStatus && d.rangeStatus.includes("可")?"ok":"fail");
+    }catch{
+      document.getElementById("company").textContent="定位失敗";
+      document.getElementById("range").textContent="-";
+    }
   });
 }
 setInterval(updateStatus,5000);
-updateStatus();
 
-/* ===== 打卡 ===== */
+/* ================= 打卡 ================= */
 async function clock(){
-  const btn = document.getElementById("clockBtn");
+  const btn=document.getElementById("clockBtn");
   if(btn.classList.contains("loading")) return;
 
   btn.classList.add("loading");
-  btn.textContent = "打卡中";
+  btn.textContent="打卡中";
 
   navigator.geolocation.getCurrentPosition(async pos=>{
     try{
@@ -198,18 +200,22 @@ async function clock(){
   });
 }
 
-/* ===== 今日 ===== */
-function today(){
-  const d=new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-}
-
+/* ================= 今日紀錄 ================= */
 async function loadToday(){
-  const res=await fetch(`${API}?action=getToday&userId=${userId}&date=${today()}`);
+  if(!userId){
+    document.getElementById("today").textContent="尚未取得使用者資訊";
+    return;
+  }
+
+  const res=await fetch(
+    `${API}?action=getToday&userId=${userId}&date=${todayStr()}`
+  );
   const d=await res.json();
-  today.innerHTML = d.length
-    ? d.map(x=>`• ${x.status} ${x.time}（${x.company}）`).join("<br>")
-    : "無";
+
+  document.getElementById("today").innerHTML =
+    d.length
+      ? d.map(x=>`• ${x.status} ${x.time}（${x.company}）`).join("<br>")
+      : "今日尚無打卡紀錄";
 }
 </script>
 
