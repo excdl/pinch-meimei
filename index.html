@@ -96,12 +96,12 @@ body {
 </div>
 
 <script>
-const API_ENDPOINT = "https://script.google.com/macros/s/YOUR_DEPLOY_ID/exec";
+const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbxIEFbi4Msia-to_n6NZwK0GULL9zSr2ZL963eYCZVdPVZMOrJ4WkAoVJz5a8GMXhSA/exec";
 let userId="", userName="";
 
 // 初始化使用者
 async function initUser(){
-  await liff.init({liffId:"YOUR_LIFF_ID"});
+  await liff.init({liffId:"2008786085-L1CtKqqv"});
   if(!liff.isLoggedIn()) await liff.login();
   const profile = await liff.getProfile();
   userId = profile.userId;
